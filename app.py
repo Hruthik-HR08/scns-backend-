@@ -17,8 +17,8 @@ def chat():
         if not message:
             return jsonify({"error": "No message provided"}), 400
 
-        # SIMPLE ECHO REPLY FOR TESTING
-        reply_text = f"Echo from SCNS backend ({role}): {message}"
+        # Simple assistant-style reply (no Echo prefix)
+        reply_text = f"I received your message: {message}"
         return jsonify({"reply": reply_text})
     except Exception as e:
         # if anything unexpected happens, return an error field
