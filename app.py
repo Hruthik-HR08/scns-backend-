@@ -1,45 +1,56 @@
 import os
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+import requests
+import json
 
 app = Flask(__name__)
 CORS(app)
-
 
 @app.route("/chat", methods=["POST"])
 def chat():
     try:
         data = request.json or {}
-        message = data.get("message", "").strip().lower()
+        message = data.get("message", "").strip()
         role = data.get("role", "Guest")
 
         if not message:
             return jsonify({"error": "No message provided"}), 400
 
-        # SCNS Campus Assistant replies
-        if any(word in message for word in ["hello", "hi", "hey"]):
-            reply_text = "Hi! I'm SCNS - your Smart Campus Navigation assistant. Ask me about NIE buildings, classrooms, or campus navigation!"
+        # Groq AI API call
+        headers = {
+            "Authorization": f"Bearer {os.environ.get('GROQ_API_KEY')}",
+            "Content-Type": "application/json"
+        }
         
-        elif any(word in message for word in ["building", "classroom", "room", "lab"]):
-            reply_text = "NIE has 5 main academic blocks: Block A (CSE/IT), Block B (ECE/ME), Block C (Civil/CE), Block D (Labs), Block E (Library). Which building do you need?"
+        payload = {
+            "model": "llama-3.1-8b-instant",  # Super fast model
+            "messages": [
+                {
+                    "role": "system", 
+                    "content": "You are SCNS - Smart Campus Navigation assistant for NIE Mysore. Answer about campus navigation, buildings (A-E), library, canteen, classrooms, events. Be concise and helpful."
+                },
+                {"role": "user", "content": message}
+            ],
+            "max_tokens": 150
+        }
+
+        response = requests.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers=headers,
+            json=payload,
+            timeout=10
+        )
         
-        elif "library" in message:
-            reply_text = "NIE Central Library is in Block E (Ground Floor). Open 8:30 AM - 8:00 PM. Need directions?"
-        
-        elif "canteen" in message or "food" in message:
-            reply_text = "Main Canteen is near Block A entrance. Also check VT Canteen (Block B) and Ladies Hostel Canteen."
-        
-        elif "directions" in message or "route" in message:
-            reply_text = "Tell me your starting point and destination! Example: 'Block A to Library'"
-        
+        if response.status_code == 200:
+            reply_text = response.json()["choices"][0]["message"]["content"]
         else:
-            reply_text = f"Got it! Working on campus navigation for: {message.title()}. Full AI coming soon!"
+            reply_text = f"SCNS: Working on '{message}' - full campus AI coming soon!"
 
         return jsonify({"reply": reply_text})
         
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
